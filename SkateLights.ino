@@ -53,19 +53,20 @@ void loop() {
 
   // Set some defaults
   strip.setBrightness(64); // 0-255
-  int mode = 0; // 0 = rainbowSweep, 1 = compassColor, 2 = stepSplash, 3 = speedSweep
+  int mode = 4; // 0 = rainbowSweep, 1 = compassColor, 2 = stepSplash, 3 = speedSweep
   /* Get a new sensor event */ 
   sensors_event_t event; 
   accel.getEvent(&event);
   mag.getEvent(&event);
   
   // Stuff some variables we might call on later depending on the various modes
-  int xAccel = event.acceleration.x;
-  int yAccel = event.acceleration.y;
-  int zAccel = event.acceleration.z;
+  double xAccel = event.acceleration.x;
+  double yAccel = event.acceleration.y;
+  double zAccel = event.acceleration.z;
+  
   float Pi = 3.14159;
   float heading = (atan2(event.magnetic.y,event.magnetic.x) * 180) / Pi;
-
+  
   // Handle the various modes
   switch (mode) {
   case 0:    // Rainbow cycle
@@ -75,11 +76,13 @@ void loop() {
     compassColor(heading);
     break;
   case 2:    // Splash on step
-    // TODO
+    splashStep(zAccel, strip.Color(127, 127, 127));
     break;
   case 3:    // Sweep speed changes on skate speed
     // TODO
     break;
+  case 4:
+    sensorMonitor();
   } 
 
 }
@@ -103,10 +106,10 @@ void compassColor (float heading) {
     strip.show();
 }
 
-void stepSplash(int zAccel) {
+void splashStep(double zAccel, uint32_t color) {
   if (zAccel < 3) {
-    //fadeDown(64, 0, 64);
-    Serial.print("Fading!");
+    fadeDown(64, 0, 64, color);
+    Serial.println(" Fading!");
   }
 }
 
@@ -203,11 +206,27 @@ uint32_t Wheel(byte WheelPos) {
   }
 }
 
-void fadeDown(uint32_t highVal, uint32_t lowVal, uint8_t rate) {
+void fadeDown(uint32_t highVal, uint32_t lowVal, uint8_t rate, uint32_t color) {
+  for(uint16_t i=0; i<strip.numPixels(); i++) {
+    strip.setPixelColor(i, color);
+  }
+  strip.setBrightness(highVal);
+  strip.show();
   for(int i = highVal; i > lowVal; i--) {
     strip.setBrightness(i);
-
     strip.show();
     delay(rate);
   }
+}
+
+void sensorMonitor () {
+  sensors_event_t event; 
+  accel.getEvent(&event);
+  mag.getEvent(&event);
+  Serial.print("X: "); Serial.print(event.acceleration.x); Serial.print("  ");
+  Serial.print("Y: "); Serial.print(event.acceleration.y); Serial.print("  ");
+  Serial.print("Z: "); Serial.print(event.acceleration.z); Serial.print("  ");
+  Serial.print("Sum: "); Serial.print(event.acceleration.x + event.acceleration.y + event.acceleration.z); Serial.print("  ");
+  Serial.println("m/s^2 ");
+  delay(100);
 }
