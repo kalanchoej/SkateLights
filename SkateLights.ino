@@ -26,7 +26,6 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_GRB + NEO_KHZ800);
 void setup() {
   // init the lights
   strip.begin();
-  strip.setBrightness(64);
   strip.show(); // Initialize all pixels to 'off'
   
   // Get serial ready for debugging
@@ -47,79 +46,68 @@ void setup() {
     Serial.println("Ooops, no LSM303 detected ... Check your wiring!");
     while(1);
   }
+  
 }
 
 void loop() {
-//  // Some example procedures showing how to display to the pixels:
-//  colorWipe(strip.Color(255, 0, 0), 50); // Red
-//  colorWipe(strip.Color(0, 255, 0), 50); // Green
-//  colorWipe(strip.Color(0, 0, 255), 50); // Blue
-//  // Send a theater pixel chase in...
-//  theaterChase(strip.Color(127, 127, 127), 50); // White
-//  theaterChase(strip.Color(127,   0,   0), 50); // Red
-//  theaterChase(strip.Color(  0,   0, 127), 50); // Blue
-//
-//  rainbow(20);
-//  rainbowCycle(20);
-//  theaterChaseRainbow(50);
 
-// This is how to set a single pixel to a color.
-// arg 1 = pixel num (starting at 0)
-// arg 2-4 = RGB value
-//strip.setPixelColor(1, 255, 0, 0);
-
-// This is another way that stores a 32bit color value to a variable name first for easy reuse
-//uint32_t magenta = strip.Color(255, 0, 255);
-//uint32_t yellow = strip.Color(255, 255, 0);
-//strip.setPixelColor(2, magenta);
-
-// Set some brigtness? 0-255 values
-//strip.setBrightness(64);
-
-/* Get a new sensor event */ 
-sensors_event_t event; 
-accel.getEvent(&event);
-
-
-int zAccel = event.acceleration.z;
-
-
-if (zAccel < 3) {
-  //fadeDown(64, 0, 64);
-  Serial.print("Fading!");
-}
-
-//if (event.acceleration.y > 0) {
-//  for(uint16_t i=0; i<strip.numPixels(); i++) {
-//    strip.setPixelColor(i, yellow);
-//  }
-//}
-
+  // Set some defaults
+  strip.setBrightness(64); // 0-255
+  int mode = 0; // 0 = rainbowSweep, 1 = compassColor, 2 = stepSplash, 3 = speedSweep
+  /* Get a new sensor event */ 
+  sensors_event_t event; 
+  accel.getEvent(&event);
   mag.getEvent(&event);
   
+  // Stuff some variables we might call on later depending on the various modes
+  int xAccel = event.acceleration.x;
+  int yAccel = event.acceleration.y;
+  int zAccel = event.acceleration.z;
   float Pi = 3.14159;
-  
-  // Calculate the angle of the vector y,x
   float heading = (atan2(event.magnetic.y,event.magnetic.x) * 180) / Pi;
-  
+
+  // Handle the various modes
+  switch (mode) {
+  case 0:    // Rainbow cycle
+    rainbowCycle(20, 2);
+    break;
+  case 1:    // Compass color
+    compassColor(heading);
+    break;
+  case 2:    // Splash on step
+    // TODO
+    break;
+  case 3:    // Sweep speed changes on skate speed
+    // TODO
+    break;
+  } 
+
+}
+
+void compassColor (float heading) {
   // Normalize to 0-360
   if (heading < 0)
   {
     heading = 360 + heading;
   }
-//  Serial.print("Compass Heading: ");
-//  Serial.println(heading);
+  Serial.print("Compass Heading: ");
+  Serial.println(heading);
 //  Serial.print("Byte Value: ");
 //  Serial.println(ByteHeading(heading));
 //  Serial.print("Wheel Value: ");
 //  Serial.println(Wheel(ByteHeading(heading)));
-//  delay(500);
 
-colorWipe(Wheel(ByteHeading(heading)), 1);
+    for(uint16_t i=0; i<strip.numPixels(); i++) {
+      strip.setPixelColor(i, Wheel(ByteHeading(heading)));
+    }
+    strip.show();
+}
 
-// This updates the strip
-//strip.show();
-
+void stepSplash(int zAccel) {
+  if (zAccel < 3) {
+    //fadeDown(64, 0, 64);
+    Serial.print("Fading!");
+  }
 }
 
 // Fill the dots one after the other with a color
@@ -144,12 +132,14 @@ void rainbow(uint8_t wait) {
 }
 
 // Slightly different, this makes the rainbow equally distributed throughout
-void rainbowCycle(uint8_t wait) {
+// Split specifies how many cycles are required to display the full rainbow
+// i.e. 2 means 1/2 of the rainbow will display at a time
+void rainbowCycle(uint8_t wait, int split) {
   uint16_t i, j;
 
   for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
     for(i=0; i< strip.numPixels(); i++) {
-      strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
+      strip.setPixelColor(i, Wheel(((i * 256 / split / strip.numPixels()) + j) & 255));
     }
     strip.show();
     delay(wait);
