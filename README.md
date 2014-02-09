@@ -4,15 +4,15 @@ You'll need some Arduino libraries to get started, and I'd recommend the Adafrui
 
 Check this out for links to the Adafruit Arduino IDE and other getting started stuff: http://learn.adafruit.com/getting-started-with-flora/download-software
 
-LM303 Library: https://github.com/adafruit/Adafruit_LSM303DLHC
-NeoPixel Library: https://github.com/adafruit/Adafruit_NeoPixel
-Universal Sensor Library: https://github.com/adafruit/Adafruit_Sensor
+* LM303 Library: https://github.com/adafruit/Adafruit_LSM303DLHC
+* NeoPixel Library: https://github.com/adafruit/Adafruit_NeoPixel
+* Universal Sensor Library: https://github.com/adafruit/Adafruit_Sensor
 
 If you need the hardware go here:
-Flora: http://www.adafruit.com/products/659
-Gemma (once you're ready to deploy use this rather than the Flora): http://www.adafruit.com/gemma
-Accelerometer/Compass: http://www.adafruit.com/products/1247
-NeoPixel Sticks: http://www.adafruit.com/products/1426
+* Flora: http://www.adafruit.com/products/659
+* Gemma (once you're ready to deploy use this rather than the Flora): http://www.adafruit.com/gemma
+* Accelerometer/Compass: http://www.adafruit.com/products/1247
+* NeoPixel Sticks: http://www.adafruit.com/products/1426
 
 You will probably want some other stuff too like power switches, LiPo batteries, etc.
 
