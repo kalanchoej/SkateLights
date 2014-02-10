@@ -2,12 +2,17 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LSM303_U.h>
+#include <CapacitiveSensor.h>
+
 
 /* Assign a unique ID to this sensor at the same time */
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 Adafruit_LSM303_Mag_Unified mag = Adafruit_LSM303_Mag_Unified(12345);
 
+CapacitiveSensor   cs_1 = CapacitiveSensor(12,9);        // 10M resistor between pins 4 & 2, pin 2 is sensor pin, add a wire and or foil if desired
+
 #define PIN 6
+#define CSTHRESH 200
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -53,7 +58,11 @@ void loop() {
 
   // Set some defaults
   strip.setBrightness(64); // 0-255
-  int mode = 1; // 0 = rainbowSweep, 1 = compassColor, 2 = stepSplash, 3 = speedSweep, 4 = Serial debug
+  
+  if(!mode) {
+    int mode = 0;
+  }
+  //int mode;// = 1; // 0 = rainbowSweep, 1 = compassColor, 2 = stepSplash, 3 = speedSweep, 4 = Serial debug
   /* Get a new sensor event */ 
   sensors_event_t event; 
   accel.getEvent(&event);
@@ -64,24 +73,41 @@ void loop() {
   double yAccel = event.acceleration.y;
   double zAccel = event.acceleration.z;
   
+  long button1 =  cs_1.capacitiveSensor(30);
+  Serial.println(button1);
+  
+  if (button1 > CSTHRESH) {
+//    while (cs_1.capacitiveSensor(30)) {
+//      if (cs_1.capacitiveSensor(30)) {
+      mode++;
+      delay(1000);
+//      }
+//    }
+  }
+  
   float Pi = 3.14159;
   float heading = (atan2(event.magnetic.y,event.magnetic.x) * 180) / Pi;
   
   // Handle the various modes
   switch (mode) {
   case 0:    // Rainbow cycle
+    Serial.println("Mode 0, Rainbow");
     rainbowCycle(20, 2);
     break;
   case 1:    // Compass color
+    Serial.println("Mode 1, Compass");
     compassColor(heading);
     break;
   case 2:    // Splash on step
+    Serial.println("Mode 2, Splash Step");
     splashStep(zAccel, strip.Color(127, 127, 127));
     break;
   case 3:    // Sweep speed changes on skate speed
     // TODO
+    Serial.println("Mode 3, Speed Wipe");
     break;
   case 4:
+    Serial.println("Mode 4, Serial Monitor");
     sensorMonitor();
   } 
 
@@ -93,8 +119,8 @@ void compassColor (float heading) {
   {
     heading = 360 + heading;
   }
-  Serial.print("Compass Heading: ");
-  Serial.println(heading);
+//  Serial.print("Compass Heading: ");
+//  Serial.println(heading);
 //  Serial.print("Byte Value: ");
 //  Serial.println(ByteHeading(heading));
 //  Serial.print("Wheel Value: ");
