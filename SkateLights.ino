@@ -53,7 +53,7 @@ void loop() {
 
   // Set some defaults
   strip.setBrightness(64); // 0-255
-  int mode = 4; // 0 = rainbowSweep, 1 = compassColor, 2 = stepSplash, 3 = speedSweep
+  int mode = 1; // 0 = rainbowSweep, 1 = compassColor, 2 = stepSplash, 3 = speedSweep, 4 = Serial debug
   /* Get a new sensor event */ 
   sensors_event_t event; 
   accel.getEvent(&event);
