@@ -9,10 +9,10 @@
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 Adafruit_LSM303_Mag_Unified mag = Adafruit_LSM303_Mag_Unified(12345);
 
-CapacitiveSensor   cs_1 = CapacitiveSensor(12,9);        // 10M resistor between pins 4 & 2, pin 2 is sensor pin, add a wire and or foil if desired
+CapacitiveSensor   cs_12_9 = CapacitiveSensor(12,9);        // 10M resistor between pins 4 & 2, pin 2 is sensor pin, add a wire and or foil if desired
 
 #define PIN 6
-#define CSTHRESH 200
+#define CSTHRESH 500
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -28,15 +28,19 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_GRB + NEO_KHZ800);
 // and minimize distance between Arduino and first pixel.  Avoid connecting
 // on a live circuit...if you must, connect GND first.
 
+int mode; //= 0 // 0 = rainbowSweep, 1 = compassColor, 2 = stepSplash, 3 = speedSweep, 4 = Serial debug
+boolean changeMode;
 void setup() {
+
   // init the lights
   strip.begin();
+  strip.setBrightness(64); // 0-255
   strip.show(); // Initialize all pixels to 'off'
   
   // Get serial ready for debugging
   // This can probably go when it's time for Gemma
   Serial.begin(9600);
-  
+
   // Check for the accelerometer
   if(!accel.begin())
   {
@@ -52,38 +56,51 @@ void setup() {
     while(1);
   }
   
+  
 }
 
 void loop() {
 
   // Set some defaults
-  strip.setBrightness(64); // 0-255
   
-  if(!mode) {
-    int mode = 0;
-  }
-  //int mode;// = 1; // 0 = rainbowSweep, 1 = compassColor, 2 = stepSplash, 3 = speedSweep, 4 = Serial debug
+  
   /* Get a new sensor event */ 
   sensors_event_t event; 
   accel.getEvent(&event);
   mag.getEvent(&event);
   
-  // Stuff some variables we might call on later depending on the various modes
-  double xAccel = event.acceleration.x;
-  double yAccel = event.acceleration.y;
-  double zAccel = event.acceleration.z;
   
-  long button1 =  cs_1.capacitiveSensor(30);
-  Serial.println(button1);
   
-  if (button1 > CSTHRESH) {
-//    while (cs_1.capacitiveSensor(30)) {
-//      if (cs_1.capacitiveSensor(30)) {
-      mode++;
-      delay(1000);
-//      }
-//    }
+  long cap1 = cs_12_9.capacitiveSensor(30);
+  Serial.print(cap1);
+  Serial.print("\t");
+  
+  if (cap1 > CSTHRESH) {
+    changeMode = true;
+    Serial.println("change mode triggered");
+    delay(10);
+  } else {
+    changeMode = false;
+    delay(10);
   }
+  
+  if (changeMode == true  && mode < 4) {
+      mode++;
+      Serial.print("mode changed to: ");
+      Serial.println(mode);
+      changeMode = false;
+      delay(10);
+    }
+    if (changeMode == true && mode == 4) {
+      mode = 0;
+      Serial.print("mode changed to: ");
+      Serial.println(mode);
+      changeMode = false;
+      delay(10);
+    }
+  
+
+
   
   float Pi = 3.14159;
   float heading = (atan2(event.magnetic.y,event.magnetic.x) * 180) / Pi;
@@ -91,8 +108,9 @@ void loop() {
   // Handle the various modes
   switch (mode) {
   case 0:    // Rainbow cycle
-    Serial.println("Mode 0, Rainbow");
-    rainbowCycle(20, 2);
+    //Serial.print(millis());
+    Serial.print("Mode 0, Rainbow");
+    rainbowCycle(10, 2);
     break;
   case 1:    // Compass color
     Serial.println("Mode 1, Compass");
@@ -100,7 +118,7 @@ void loop() {
     break;
   case 2:    // Splash on step
     Serial.println("Mode 2, Splash Step");
-    splashStep(zAccel, strip.Color(127, 127, 127));
+    splashStep(event.acceleration.z, strip.Color(127, 127, 127));
     break;
   case 3:    // Sweep speed changes on skate speed
     // TODO
@@ -110,6 +128,8 @@ void loop() {
     Serial.println("Mode 4, Serial Monitor");
     sensorMonitor();
   } 
+
+delay(10);
 
 }
 
@@ -133,7 +153,14 @@ void compassColor (float heading) {
 }
 
 void splashStep(double zAccel, uint32_t color) {
-  if (zAccel < 3) {
+  Serial.print("zAccel: ");
+  Serial.println(zAccel);
+  sensors_event_t event; 
+  accel.getEvent(&event);
+  Serial.print("new event: ");
+  Serial.println(abs(event.acceleration.z));
+  
+  if (abs(zAccel) - abs(event.acceleration.z) < 10) {
     fadeDown(64, 0, 64, color);
     Serial.println(" Fading!");
   }
@@ -165,7 +192,6 @@ void rainbow(uint8_t wait) {
 // i.e. 2 means 1/2 of the rainbow will display at a time
 void rainbowCycle(uint8_t wait, int split) {
   uint16_t i, j;
-
   for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
     for(i=0; i< strip.numPixels(); i++) {
       strip.setPixelColor(i, Wheel(((i * 256 / split / strip.numPixels()) + j) & 255));
@@ -254,5 +280,5 @@ void sensorMonitor () {
   Serial.print("Z: "); Serial.print(event.acceleration.z); Serial.print("  ");
   Serial.print("Sum: "); Serial.print(event.acceleration.x + event.acceleration.y + event.acceleration.z); Serial.print("  ");
   Serial.println("m/s^2 ");
-  delay(100);
+  delay(10);
 }
