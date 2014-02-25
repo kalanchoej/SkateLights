@@ -2,19 +2,13 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LSM303_U.h>
-#include <CapacitiveSensor.h>
-
 
 /* Assign a unique ID to this sensor at the same time */
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 Adafruit_LSM303_Mag_Unified mag = Adafruit_LSM303_Mag_Unified(12345);
 
-CapacitiveSensor  cs_12_9 = CapacitiveSensor(12,9);        // 10M resistor between pins 4 & 2, pin 2 is sensor pin, add a wire and or foil if desired
-//CapacitiveSensor  cs_12_10 = CapacitiveSensor(12,10); // This one has a 100 ohm resistor between the pad and the recv pin
-long previousMillis = 0;
-
 #define PIN 6
-#define CSTHRESH 200
+//#define CSTHRESH 100
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -30,14 +24,21 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_GRB + NEO_KHZ800);
 // and minimize distance between Arduino and first pixel.  Avoid connecting
 // on a live circuit...if you must, connect GND first.
 
-int mode = 0; // 0 = rainbowSweep, 1 = compassColor, 2 = stepSplash, 3 = speedSweep, 4 = Serial debug
+int mode = 3; // 0 = rainbowSweep, 1 = compassColor, 2 = stepSplash, 3 = speedSweep, 4 = Serial debug
 boolean changeMode;
+
+const int buttonPin = 9;    // the number of the pushbutton pin
+
+int buttonState = LOW;             // the current reading from the input pin
+int lastButtonState = LOW;   // the previous reading from the input pin
+
+long lastDebounceTime = 0;  // the last time the output pin was toggled
+long debounceDelay = 100;    // the debounce time; increase if the output flickers
 
 void setup() {
 
   // init the lights
   strip.begin();
-  strip.setBrightness(255); // 0-255
   strip.show(); // Initialize all pixels to 'off'
   
   // Get serial ready for debugging
@@ -59,46 +60,54 @@ void setup() {
     while(1);
   }
   
+  pinMode(buttonPin, INPUT);
   
 }
 
 void loop() {
 
   // Set some defaults
-  
+  int brightness = 64;
+  strip.setBrightness(brightness); // 0-255
+
   
   /* Get a new sensor event */ 
   sensors_event_t event; 
   accel.getEvent(&event);
   mag.getEvent(&event);
-    
-  long cap1 = cs_12_9.capacitiveSensor(30);
-  Serial.print(cap1);
-  Serial.print("\t");
   
-  while (cap1 > CSTHRESH) {
-    cap1 = cs_12_9.capacitiveSensor(30);
-    changeMode = true;
-    Serial.println("change mode triggered");
-    delay(10);
+  int buttonState = digitalRead(buttonPin);
+  
+  if (buttonState != lastButtonState) {
+    Serial.println(" state change detected ");
+    lastDebounceTime = millis();
   }
   
-  if (changeMode == true  && mode < 4) {
-      mode++;
-      Serial.print("mode changed to: ");
-      Serial.println(mode);
-      changeMode = false;
-      delay(10);
+  while(buttonState == HIGH) {
+    if ((millis() - lastDebounceTime) > debounceDelay) {
+      if (buttonState != lastButtonState) {  
+        
+        // signal the change
+        changeAlert(brightness);
+        
+        if (mode < 5) {
+            mode++;
+            Serial.print(" mode changed to: ");
+            Serial.println(mode);
+            delay(500);
+          }
+          if (mode == 5) {
+            mode = 0;
+            Serial.println(" mode reset 0 ");
+            delay(500);
+          }
+          
+       }
+       buttonState = digitalRead(buttonPin);
     }
-    if (changeMode == true && mode == 4) {
-      mode = 0;
-      Serial.print("mode changed to: ");
-      Serial.println(mode);
-      changeMode = false;
-      delay(10);
-    }
+  }
   
-
+lastButtonState = buttonState;
 
   
   float Pi = 3.14159;
@@ -106,26 +115,28 @@ void loop() {
   
   // Handle the various modes
   switch (mode) {
-  case 0:    // Rainbow cycle
-    Serial.println("Mode 0, Rainbow Chase: ");
+  case 0:  // No display on startup, or at beginning of mode cycle
+    strip.setBrightness(0);
+    strip.show();
+    break;
+  case 1:  
+    Serial.println(" Mode: Rainbow Cycle ");
     rainbowCycle(10, 2);
     break;
-  case 1:    // Compass color
-    Serial.println("Mode 1, Compass");
+  case 2:    // Splash on step
+    Serial.println(" Mode: Compass ");
     compassColor(heading);
     break;
-  case 2:    // Splash on step
-    Serial.println("Mode 2, Splash Step");
-    splashStep(event.acceleration.z, strip.Color(127, 127, 127));
-    break;
   case 3:    // Sweep speed changes on skate speed
-    Serial.println("Mode 3, Knight Rider");
-    knightRider(3, 32, 4, 0xFF1000); //Cycles, Speed, WIdth, RGB
-    //blockChase(200,1);
+    Serial.println(" Mode: Splash Step ");
+    strip.setBrightness(0);
+    strip.show();
+    splashStep(event.acceleration.z, strip.Color(255, 255, 255), brightness);
     break;
   case 4:
-    Serial.println("Mode 4, Rainbow");
-    rainbow(20);
+    Serial.println(" Mode: Knight Rider ");
+    strip.setBrightness(brightness*2);
+    knightRider(1, 32, 2, 0xFF1000); //Cycles, Speed, WIdth, RGB
   } 
 
 }
@@ -149,7 +160,7 @@ void compassColor (float heading) {
     strip.show();
 }
 
-void splashStep(double zAccel, uint32_t color) {
+void splashStep(double zAccel, uint32_t color, uint8_t brightness) {
   Serial.print("zAccel: ");
   Serial.println(zAccel);
   sensors_event_t event; 
@@ -157,13 +168,13 @@ void splashStep(double zAccel, uint32_t color) {
   Serial.print("new event: ");
   Serial.println(abs(event.acceleration.z));
 
-  strip.setBrightness(64);
+  strip.setBrightness(brightness);
   for(uint16_t i=0; i<strip.numPixels(); i++) {
       strip.setPixelColor(i, color);
     }
     
   if (abs(event.acceleration.z) > 10) {
-    fadeDown(255, 64, 20, color);
+    fadeDown(255, 0, 20, color);
     Serial.println(" Fading!");
   }
 }
@@ -201,10 +212,6 @@ void rainbowCycle(uint8_t wait, int split) {
     }
     strip.show();
     delay(wait);
-    
-    if(cs_12_9.capacitiveSensor(30) > CSTHRESH) {
-      break;
-    }
   }
 }
 
@@ -236,11 +243,6 @@ void blockChase(uint8_t wait, int split) {
       strip.show();
       delay(wait);
     }
-
-    
-//    if(cs_12_9.capacitiveSensor(30) > CSTHRESH) {
-//      break;
-//    }
   }
 }
 
@@ -266,10 +268,17 @@ void knightRider(uint16_t cycles, uint16_t speed, uint8_t width, uint32_t color)
         strip.setPixelColor(x+1, old_val[x+1]); strip.show();
       }
     }
-    if(cs_12_9.capacitiveSensor(30) > CSTHRESH) {
-      break;
-    }
   }
+}
+
+void changeAlert(uint8_t brightness) {
+  theaterChase(strip.Color(255,255,255), 10);
+  theaterChase(strip.Color(0,255,0), 10);
+  theaterChase(strip.Color(255,255,255), 10);
+  theaterChase(strip.Color(0,255,0), 10);
+  strip.setBrightness(0);
+  strip.show();
+  strip.setBrightness(brightness);
 }
 
 void clearStrip() {
