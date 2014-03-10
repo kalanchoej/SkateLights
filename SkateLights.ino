@@ -1,14 +1,7 @@
 #include <Adafruit_NeoPixel.h>
-#include <Wire.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_LSM303_U.h>
+//#include <Wire.h>
 
-/* Assign a unique ID to this sensor at the same time */
-Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
-Adafruit_LSM303_Mag_Unified mag = Adafruit_LSM303_Mag_Unified(12345);
-
-#define PIN 6
-//#define CSTHRESH 100
+#define PIN 1
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -24,10 +17,9 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_GRB + NEO_KHZ800);
 // and minimize distance between Arduino and first pixel.  Avoid connecting
 // on a live circuit...if you must, connect GND first.
 
-int mode = 0; // 0 = rainbowSweep, 1 = compassColor, 2 = stepSplash, 3 = speedSweep, 4 = Serial debug
-boolean changeMode;
+int mode = 0; 
 
-const int buttonPin = 9;    // the number of the pushbutton pin
+const int buttonPin = 0;    // the number of the pushbutton pin
 
 int buttonState = LOW;             // the current reading from the input pin
 int lastButtonState = LOW;   // the previous reading from the input pin
@@ -41,25 +33,6 @@ void setup() {
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
   
-  // Get serial ready for debugging
-  // This can probably go when it's time for Gemma
-  Serial.begin(9600);
-
-  // Check for the accelerometer
-  if(!accel.begin())
-  {
-    /* There was a problem detecting the ADXL345 ... check your connections */
-    Serial.println("Ooops, no LSM303 detected ... Check your wiring!");
-    while(1);
-  }
-  
-  if(!mag.begin())
-  {
-    /* There was a problem detecting the LSM303 ... check your connections */
-    Serial.println("Ooops, no LSM303 detected ... Check your wiring!");
-    while(1);
-  }
-  
   pinMode(buttonPin, INPUT);
   
 }
@@ -67,19 +40,12 @@ void setup() {
 void loop() {
 
   // Set some defaults
-  int brightness = 64;
+  int brightness = 127;
   strip.setBrightness(brightness); // 0-255
-
-  
-  /* Get a new sensor event */ 
-  sensors_event_t event; 
-  accel.getEvent(&event);
-  mag.getEvent(&event);
   
   int buttonState = digitalRead(buttonPin);
   
   if (buttonState != lastButtonState) {
-    Serial.println(" state change detected ");
     lastDebounceTime = millis();
   }
   
@@ -92,13 +58,10 @@ void loop() {
         
         if (mode < 5) {
             mode++;
-            Serial.print(" mode changed to: ");
-            Serial.println(mode);
             delay(500);
           }
           if (mode == 5) {
             mode = 0;
-            Serial.println(" mode reset 0 ");
             delay(500);
           }
           
@@ -108,10 +71,6 @@ void loop() {
   }
   
 lastButtonState = buttonState;
-
-  
-  float Pi = 3.14159;
-  float heading = (atan2(event.magnetic.y,event.magnetic.x) * 180) / Pi;
   
   // Handle the various modes
   switch (mode) {
@@ -120,63 +79,19 @@ lastButtonState = buttonState;
     strip.show();
     break;
   case 1:  
-    Serial.println(" Mode: Rainbow Cycle ");
-    rainbowCycle(10, 2);
+    rainbow(20);
     break;
   case 2:    // Splash on step
-    Serial.println(" Mode: Compass ");
-    compassColor(heading);
+    theaterChaseRainbow(50);
     break;
   case 3:    // Sweep speed changes on skate speed
-    Serial.println(" Mode: Splash Step ");
-    strip.setBrightness(0);
-    strip.show();
-    splashStep(event.acceleration.z, strip.Color(255, 255, 255), brightness);
+    theaterChase(strip.Color(127, 127, 127), 75);
     break;
   case 4:
-    Serial.println(" Mode: Knight Rider ");
     strip.setBrightness(brightness*2);
     knightRider(1, 32, 2, 0xFF1000); //Cycles, Speed, WIdth, RGB
   } 
 
-}
-
-void compassColor (float heading) {
-  // Normalize to 0-360
-  if (heading < 0)
-  {
-    heading = 360 + heading;
-  }
-//  Serial.print("Compass Heading: ");
-//  Serial.println(heading);
-//  Serial.print("Byte Value: ");
-//  Serial.println(ByteHeading(heading));
-//  Serial.print("Wheel Value: ");
-//  Serial.println(Wheel(ByteHeading(heading)));
-
-    for(uint16_t i=0; i<strip.numPixels(); i++) {
-      strip.setPixelColor(i, Wheel(ByteHeading(heading)));
-    }
-    strip.show();
-}
-
-void splashStep(double zAccel, uint32_t color, uint8_t brightness) {
-  Serial.print("zAccel: ");
-  Serial.println(zAccel);
-  sensors_event_t event; 
-  accel.getEvent(&event);
-  Serial.print("new event: ");
-  Serial.println(abs(event.acceleration.z));
-
-  strip.setBrightness(brightness);
-  for(uint16_t i=0; i<strip.numPixels(); i++) {
-      strip.setPixelColor(i, color);
-    }
-    
-  if (abs(event.acceleration.z) > 10) {
-    fadeDown(255, 0, 20, color);
-    Serial.println(" Fading!");
-  }
 }
 
 // Fill the dots one after the other with a color
@@ -295,7 +210,7 @@ uint32_t dimColor(uint32_t color, uint8_t width) {
 void theaterChaseRainbow(uint8_t wait) {
   for (int j=0; j < 256; j++) {     // cycle all 256 colors in the wheel
     for (int q=0; q < 3; q++) {
-        for (int i=0; i < strip.numPixels(); i=i+2) {
+        for (int i=0; i < strip.numPixels(); i=i+3) {
           strip.setPixelColor(i+q, Wheel( (i+j) % 255));    //turn every third pixel on
         }
         strip.show();
@@ -309,12 +224,6 @@ void theaterChaseRainbow(uint8_t wait) {
   }
 }
 
-// Take a compass heading and return a 0-255 value. 
-// Handy for sending to the Wheel() func to get back a color
-uint32_t ByteHeading(uint32_t Heading) {
-  float adj = 255.0/360.0;
-  return (unsigned int) (Heading * adj);
-}
 
 // Input a value 0 to 255 to get a color value.
 // The colours are a transition r - g - b - back to r.
@@ -341,16 +250,4 @@ void fadeDown(uint32_t highVal, uint32_t lowVal, uint8_t rate, uint32_t color) {
     strip.show();
     delay(2);
   }
-}
-
-void sensorMonitor () {
-  sensors_event_t event; 
-  accel.getEvent(&event);
-  mag.getEvent(&event);
-  Serial.print("X: "); Serial.print(event.acceleration.x); Serial.print("  ");
-  Serial.print("Y: "); Serial.print(event.acceleration.y); Serial.print("  ");
-  Serial.print("Z: "); Serial.print(event.acceleration.z); Serial.print("  ");
-  Serial.print("Sum: "); Serial.print(event.acceleration.x + event.acceleration.y + event.acceleration.z); Serial.print("  ");
-  Serial.println("m/s^2 ");
-  delay(10);
 }
