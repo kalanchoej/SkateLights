@@ -132,16 +132,18 @@ void rainbowCycle(uint8_t wait, int split) {
 
 //Theatre-style crawling lights.
 void theaterChase(uint32_t c, uint8_t wait) {
-  for (int q=0; q < strip.numPixels(); q++) {
-    for (int i=0; i < 5; i++) {
-      strip.setPixelColor(i+q-5, c);    //turn every third pixel on
-    }
-    strip.show();
-   
-    delay(wait);
-   
-    for (int i=0; i < strip.numPixels(); i++) {
-      strip.setPixelColor(i+q-5, 0);        //turn every third pixel off
+  for (int j=0; j<10; j++) {  //do 10 cycles of chasing
+    for (int q=0; q < 3; q++) {
+      for (int i=0; i < strip.numPixels(); i=i+3) {
+        strip.setPixelColor(i+q, c);    //turn every third pixel on
+      }
+      strip.show();
+     
+      delay(wait);
+     
+      for (int i=0; i < strip.numPixels(); i=i+3) {
+        strip.setPixelColor(i+q, 0);        //turn every third pixel off
+      }
     }
   }
 }
